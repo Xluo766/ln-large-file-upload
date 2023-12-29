@@ -1,7 +1,7 @@
 import SparkMD5 from "spark-md5";
 import axios from "axios";
 
-const CHUNK_SIZE = 1 * 1024 * 1024;
+const CHUNK_SIZE = 5 * 1024 * 1024;
 const BASE_URL = "http://localhost:2024";
 
 /**
@@ -31,7 +31,7 @@ export function calculateFileHash(chunkList) {
       } else {
         chunks.push(chunk.slice(0, 2));
         chunks.push(chunk.slice(CHUNK_SIZE / 2, CHUNK_SIZE / 2 + 2));
-        chunks.push(CHUNK_SIZE - 2, CHUNK_SIZE);
+        chunks.push(chunk.slice(CHUNK_SIZE - 2, CHUNK_SIZE));
       }
     }
     reader.readAsArrayBuffer(new Blob(chunks));
@@ -46,6 +46,7 @@ export function calculateFileHash(chunkList) {
  * 创建formData
  */
 export function createFormData(fileChunks, hash, existentChunks) {
+  // 如果切片有损坏，切片大小可能就不等于CHUNK_SIZE，重新传
   const existentChunksName = existentChunks
     .filter((item) => item.size === CHUNK_SIZE)
     .map((item) => item.filename);
@@ -71,7 +72,13 @@ export function createFormData(fileChunks, hash, existentChunks) {
 /**
  * 控制并发请求数
  */
-export function concurrentChunksUpload(sourceToken, dataList, max = 6) {
+export function concurrentChunksUpload(
+  sourceToken,
+  dataList,
+  progresses,
+  max = 6
+) {
+  console.log(dataList);
   return new Promise((resolve) => {
     if (dataList.length === 0) {
       resolve([]);
@@ -98,9 +105,6 @@ export function concurrentChunksUpload(sourceToken, dataList, max = 6) {
       try {
         const res = await axios.post(url, formData, {
           cancelToken: sourceToken,
-          onUploadProgress(e) {
-            console.log(e);
-          },
         });
         results[i] = res.data;
         finished++;
@@ -113,10 +117,9 @@ export function concurrentChunksUpload(sourceToken, dataList, max = 6) {
         console.log(err);
       }
     }
-
     // 最大并发数如果大于formData个数，取最小数
-    const times = Math.min(max, dataLength);
-    for (let i = 0; i < times; i++) {
+    const minTimes = Math.min(max, dataLength);
+    for (let i = 0; i < minTimes; i++) {
       _request();
     }
   });

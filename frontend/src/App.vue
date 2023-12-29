@@ -39,7 +39,6 @@ function pauseUpload() {
 }
 
 async function continueUpload() {
-  axiosSource = CancelToken.source();
   const { data } = await getExistentChunks();
   uploadChunks(data);
 }
@@ -50,6 +49,8 @@ async function continueUpload() {
   <button @click="uploadChunks()">上传</button>
   <button @click="pauseUpload">暂停</button>
   <button @click="continueUpload">继续</button>
+
+  <div></div>
 </template>
 
 <style scoped></style>
